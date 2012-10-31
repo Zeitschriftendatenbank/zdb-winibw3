@@ -1,0 +1,5 @@
+005 Tn
+011 /f
+012 /xv
+100 ++
+101 |d|nur zulaessig fuer den Bestand des Deutschen Exilarchivs (DEA), ZKA-Redaktion innerhalb des Kalliope-Verbundes
