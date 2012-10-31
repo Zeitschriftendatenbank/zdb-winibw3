@@ -1,0 +1,412 @@
+// Datei:		zdb_scripte_03.js
+// Autor:		Klee, ZDB
+function zdb_gndNormdatensatzKopie(){
+	if (application.activeWindow.getVariable("scr") != "8A"){
+		application.messageBox("Datensatzkopie","Der Datensatz muss sich in der Vollanzeige befinden!", "alert-icon");
+		return;
+	}
+	//Persoenliche Einstellung des Titelkopie-Pfades ermitteln
+	var titlecopyfileStandard = application.getProfileString("winibw.filelocation", "titlecopy", "");
+	// Titelkopie auf zdb_titeldatenkopie.ttl setzen
+	application.activeWindow.titleCopyFile = "resource:/ttlcopy/gnd_title.ttl";
+	
+	application.overwriteMode = false;
+	var idn = application.activeWindow.getVariable("P3GPP");
+	var typ = application.activeWindow.getVariable("P3VMC");
+	application.activeWindow.command("show d", false);
+	application.activeWindow.copyTitle();
+	application.activeWindow.command("ein n", false);
+	application.activeWindow.title.insertText(" *** Normdatenkopie *** \n");
+	application.activeWindow.pasteTitle();
+	application.activeWindow.title.endOfBuffer(false);
+
+	if (typ == "Tb" || typ == "Tg") {
+		application.activeWindow.title.insertText("??? !" + idn + "!");
+	}
+	//application.activeWindow.title.startOfBuffer(false);
+	application.activeWindow.title.findTag("005", 0, false, true, true);
+	application.activeWindow.title.endOfField(false);
+	
+	//Wiederherstellen des urspruenglichen Pfades der Titelkopie-Datei:
+	application.activeWindow.titleCopyFile = titlecopyfileStandard;
+}
+/**
+* Scherer Birgit, BSZ
+* 10.04.2012
+*/
+function tf_vollenden()
+{
+	var katString;
+	var temp;	
+	var pos=0;
+	var strCounter=0;
+	var windstat;
+	
+
+	// String der Kat. 111 auslesen	
+	katString = application.activeWindow.title.findTag("111", 0, false, false, true);
+	
+	
+	// Merker alt_ppn auf '0' setzen. Naeheres siehe tf_vollenden_fortsetzen().
+	alt_ppn = 0;
+	
+	
+		//-------------------------------------------
+	// Behandlung von $d (Datum)
+	//-------------------------------------------
+	
+	temp = katString;  // Urspruenglichen Kategoriestring in temp einspeichern
+	
+	
+	// String $d bis Ende
+	pos = temp.indexOf("$d");
+	if ((pos > 0) && (temp.length > pos+2)) {
+		temp = temp.substring(pos+2);
+	}
+	
+	//** Eine Jahreszahl muss vorhanden sein. Deshalb die unsaubere Programmierung. **
+	
+	// Falls $c vorhanden, dann nur den Inhalt *bis* $c verwenden
+	var pos1 = temp.indexOf("$c");
+	var pos2 = temp.indexOf("$g");
+	
+	// Den kleineren (aber positiven) Wert verwenden.
+	// Beachte: $c kommt immer vor $g (Reihenfolge)
+	if (pos1 > 0) {
+		pos = pos1;
+	}
+	else { // pos1 ist <= 0, nun pos2 pruefen
+		if (pos2 > 0) {
+			pos = pos2;
+		}
+	}
+	
+	// Nur wenn ein Positionswert gefunden wurde und.. s.u.
+	if (pos > 0) {
+		temp = temp.substring(0,pos);
+		//..und der Datumsstring keinen Bindestrich enthaelt.
+		if (temp.indexOf("-") <= 0) {
+			temp = "$c" + temp;
+		}
+	}
+	
+	
+	
+	// Enthaelt das Ergebis zwei Jahreszahlen, getrennt durch Bindestrich,
+	// ist der Zielwert durch $b zu trennen.
+	if (temp.indexOf("-") > 0) {
+		
+		// Leerzeichen mehrfach durch nichts ersetzen, da es kein allg. replaceAll gibt.
+		temp = temp.replace(" ", "");
+		temp = temp.replace(" ", "");
+		
+		// Sonderfall: Kein Endedatum, String endet mit Bindestrich
+		if (temp.charAt(temp.length-1) == "-")
+			temp = temp.replace("-" , "");
+		
+		temp = temp.replace("-", "$b");
+	}
+		
+	application.activeWindow.title.endOfBuffer(false);
+	application.activeWindow.title.insertText("\n548 " + temp + "$4datv");
+	
+		
+	
+	//-------------------------------------------
+	// Behandlung der Veranstaltungsorte ($c)
+	//-------------------------------------------
+		
+	var ppn="";
+		
+	temp = katString;  // Urspruenglichen Kategoriestring in temp einspeichen
+	
+		
+	//-- Erstes $c suchen und den String danach mit split aufteilen (in ein Orte-Array)
+	
+	pos = temp.indexOf("$c");
+	if ((pos > 0) && (temp.length > pos+2)) {
+		temp = temp.substring(pos+2);
+		
+		//_showMessage("$c ist vorhanden");
+		
+		// Falls noch $g vorkommt
+		pos = temp.indexOf("$g");
+		if (pos > 0) {
+			temp = temp.substring(0,pos);
+		}
+
+		var ortArray = temp.split("; ");
+		var anzOrte = ortArray.length;
+		var ort;
+		var winId;
+
+		// Win-ID des aktiven Fensters (fuer die spaetere Reaktivierung)
+		edit_winId = application.activeWindow.windowID;
+
+		// Array leeren
+		search_winIdArray.length = 0;
+		search_ortArray.length = 0;
+		
+		// Hochzaehlen, nur wenn Suchfenster fuer die Orte angezeigt sind.
+		var ortSuchfensterZaehler = 0;  
+		var zusatzText = "";
+		
+		
+		// Schleife ueber die Orte (gelistet im Editfenster)
+		for (var i=0; i<anzOrte; i++) {
+			
+			ort = ortArray[i];
+			
+			// Ggf. 'u.a.' aus Ortsnamen entfernen
+			//ort = ort.replace(/u\.a\./, "");
+			//ort = ort.replace(/u\.\sa\./, "");			
+			ort = ort.replace(/\s+u\.\s*a\./, "");
+			
+						
+			//_showMessage("Ort (nach Bereinigung): " + ort, "vollenden()");  // TEST
+						
+			// Suchbefehl u. gleichzeitiges OEFFNEN eines neuen Fensters
+			application.activeWindow.command("rec n;f kor " + ort + " and bbg tg* and ent gik", true);
+			
+			// Eintraege in die globalen Arrays einstellen
+			winId = application.activeWindow.windowID;  // ID des Suchfensters
+			search_winIdArray.push( winId );
+			search_ortArray.push( ort );
+			
+			windstat = application.activeWindow.status;  // Fuer den Nohits-Fall
+			
+			// Bei Gleichheit der Variablen erscheint die Review-Anzeige.
+			// Problem: Die Trefferanzahl kann dann nicht korrekt ausgelesen werden.
+			// (Die Treffer erscheinen nicht auf einer Seite..).
+			if (application.activeWindow.getVariable("P3GSZ") == application.activeWindow.getVariable("P3GSE"))
+				strCounter = "viele";
+			else			
+				strCounter = application.activeWindow.getVariable("P3GSZ");
+			
+			
+			if (windstat == "NOHITS") {
+				application.messageBox("", "Ortssuche ergab keinen Treffer, bitte prüfen Sie den Suchstring. Ort wird als reiner Text hinterlegt", "");
+				
+				application.activeWindow.closeWindow();  // Schliessen des Suchfensters
+				application.activateWindow(edit_winId);  // Editfenster aktivieren
+				application.activeWindow.title.insertText("\n551 " + ort + "$4ortv");
+				
+				// Eintraege aus den globalen Arrays entfernen.
+				// (Relevant bei mehreren Orten/Suchfenstern.)
+				search_winIdArray.pop();
+				search_ortArray.pop();
+				
+				// Wechsel zu einem evtl. noch vorhandenen Suchfenster
+				if (search_winIdArray.length > 0) {
+					application.activateWindow( search_winIdArray[search_winIdArray.length-1] )
+				}				
+			}			
+			else { // Es gibt Treffer -> zwei Faelle
+				if (strCounter == 1) {
+					// Fall 1: Genau ein Treffer
+					//application.messageBox("", "Treffer: " + strCounter, "");
+					
+					ppn = application.activeWindow.getVariable("P3GPP");
+					
+					application.activeWindow.closeWindow();  // Schliessen des Suchfensters
+					application.activateWindow(edit_winId);  // Editfenster aktivieren
+					application.activeWindow.title.insertText("\n551 !" + ppn + "!$4ortv");								
+					
+					// Eintraege aus den globalen Arrays entfernen.
+					// (Relevant bei mehreren Orten/Suchfenstern.)
+					search_winIdArray.pop();
+					search_ortArray.pop();
+					
+					// Wechsel zu einem evtl. noch vorhandenen Suchfenster
+					if (search_winIdArray.length > 0) {
+						application.activateWindow( search_winIdArray[search_winIdArray.length-1] )
+					}					
+				}
+				else {  
+					// Fall 2: strCounter ist groesser 1 (Anzeige eines Suchfensters).
+					// Die notwendigen Aktionen dieses Else-Zweiges werden in der
+					// Funktion 'vollenden_fortsetzen' abgearbeitet.
+					
+					//application.messageBox("", "Treffer (strCounter): " + strCounter, "");  // TEST
+
+					//-- Vor den weiteren Aktionen erfolgt ein prophylaktischer
+					// Eintrag der Ortsvorgabe.
+					// Hintergrund: Wuerde der Nutzer das Suchfenster (fuer die Orte)
+					// einfach schliessen, so gaebe es ueberhaupt einen Eintrag.
+					
+						// Zum Editfenster wechseln
+					application.activateWindow(edit_winId);
+						// Der prophylaktische Eintrag
+					application.activeWindow.title.insertText("\n551 " + ort + "$4ortv");
+						// Wiederaktivieren des Suchfensters
+					application.activateWindow( winId );
+					
+					
+					ortSuchfensterZaehler++;  // Hochzaehlen
+										
+					// Zusatztext fuer die Message-Box (ab zwei Orten)
+					if (ortSuchfensterZaehler > 1) {
+						zusatzText = "Achtung, Suchfenster fuer den "
+						           + ortSuchfensterZaehler + "-ten Ort\n\n";
+					}
+										
+					application.messageBox("", zusatzText
+					  + "Die Körperschaftensuche ergab " + strCounter 
+					  + " Treffer, bitte wählen Sie einen Satz aus aktivieren Sie"
+					  + " dann die Funktion 'TF_Vollenden_Forsetzen'.\n"
+				      + "Wenn Sie den passenden Ort nicht finden, können Sie in"
+ 					  + " dem Fenster eine erneute Suche tätigen und dann erst die"
+					  + " Funktion 'TF_Vollenden_Fortsetzen' ausführen", "");
+					// "Sollten Sie keinen entsprechenden Normdatensatz vorfinden, 
+					//so schließen Sie einfach das aktuelle Fenster.", "");			
+				}			
+			}
+			
+		}  // end-for
+		
+	}
+	
+}
+
+/**
+* Scherer Birgit, BSZ
+* 10.04.2012
+*/
+function tf_vollenden_fortsetzen()
+{
+	var anzSuchfenster = search_winIdArray.length;  // Anzahl der geoeffneten Suchfenster
+	var ppn;
+	var winId;
+	
+	var flgWinId = true;
+	var flg = true;
+	var suchZeile;
+
+
+	//-- Stets nur das letzte Suchfenster 'abarbeiten' (sofern es mehrere gibt).		
+	winId = search_winIdArray[anzSuchfenster-1];  // ID des (letzten) Suchfensters
+	
+	//_showMessage("WINID: " + winId + " -- Ort: " + search_ortArray[anzSuchfenster-1]);
+	
+	try {
+		flgWinId = application.activateWindow(winId);  // Fenster aktivieren (zur Sicherheit)	
+	} catch (e) {
+		// Fehlerzweig zum Bereinigen/Reduzieren der Array.
+		// Ursache: Haendisches Schliessen eine Suchfensters.
+		
+		//application.messageBox("", "Fehler mit WinID: " +winId +" " +search_ortArray[anzSuchfenster-1], "error_icon");
+		
+		if (search_winIdArray.length > 0) {
+			search_winIdArray.pop();  // Array-Elemente entfernen
+			search_ortArray.pop();
+		}
+
+		//_showMessage("Anz. Such-WinIDs (nachher 1): " +search_winIdArray.length, "vollenden_fortsetzen()");
+				
+		// Selbstaufruf, sofern noch Array-Elemente vorhanden sind
+		if (search_winIdArray.length > 0) {
+			tf_vollenden_fortsetzen();  // >>>>> Selbstaufruf der Funktion
+		}
+		
+		return;  // >>>>> Funktion beenden (..sollte erfolgen)
+	}
+
+	
+
+	//-- Start PPN auslesen --------------------
+	//
+	// Die PPN wird dem Suchfenster entnommen. Das ist soweit problemlos. Im Fall
+	// von zwei Orten gibt es eine Unleidlichkeit, wenn im zweiten Suchfenster der
+	// Cursor nicht bewegt wird, also der Auswahlbalken auf dem ersten Eintrag bleibt.
+	// Dabei kommt es eben nicht zur Auswahl des ersten Eintrags, sondern es eird die
+	// im ersten Suchfenster ausgewaehlte PPN herangezogen.
+	// Deshalb wird ein Vergleich mit dem Merker 'alt_ppn' gemacht. Tritt nun der
+	// oben beschriebene Fall ein, so wird per Enter-Kommando 'FR' ein Fenster ge-
+	// oeffnet, das nur den einzelnen Eintrag enthaelt. Hier laesst sich die PPN nun
+	// sauber auslesen.
+	// Die generelle Anwendung des Enter-Kommandos (Fensteroeffnung zur alleinigen
+	// Anzeige eines Treffers) ist allerdings auch keine Loesung, da dies vom Nutzer
+	// selbst ausgeloest werden kann. Folgt dann noch ein Enter-Kommando vom Programm
+	// her, so wird der naechste Eintrag des Suchfensters gewaehlt (-> Fehlerfall).
+
+	// PPN des gewaehlten Eintrags aus dem aktiven Suchfenster auslesen
+	ppn = application.activeWindow.getVariable("P3GPP");
+		
+	//_showMessage(ppn + "\nCursor Position: " + application.activeWindow.getVariable("P3G!P") );	
+	
+xx = ppn;
+	// Erst fuer das zweite Suchfenster verwenden
+	if ((alt_ppn != 0) && (ppn == alt_ppn)) {
+		//_showMessage("Im IF-Zweig -- alt_ppn: " + alt_ppn);
+		// Enter-Befehl absetzen.
+		// (Dies oeffnet ein Fenster, das nur den gewaehlten Eintrag anzeigt.)
+		application.activeWindow.simulateIBWKey("FR");
+		// Nochmals die PPN auslesen
+		ppn = application.activeWindow.getVariable("P3GPP");
+	}
+
+//_showMessage("alt_ppn: " + alt_ppn + "\n\n"   + "XX: " + xx + " -- PPN: " + ppn);
+//_showMessage("XX: " + xx + " -- PPN: " + ppn);
+	
+	alt_ppn = ppn;  // Merker belegen (alt_ppn ist eine glob. Variable)
+	
+	//-- Ende PPN auslesen --------------------------
+	
+	
+	
+	// Aktives Suchfenster schliessen
+	application.activeWindow.closeWindow();  						
+	
+		
+	//-- Zum Edit-Fenster wechseln, prophylaktischen Eintrag suchen u. ersetzen
+	application.activateWindow(edit_winId);
+
+	application.activeWindow.title.startOfBuffer(false);  // Ganz oba na ganna
+	suchZeile = "551 " + search_ortArray[anzSuchfenster-1] + "$4ortv";  // Suchzeile
+		// Suche ausfuehren
+	flg = application.activeWindow.title.find(suchZeile,false,false,false);
+
+	if (flg) {
+		//_showMessage("gefunden");
+		application.activeWindow.title.deleteLine(1);  // Zeile loeschen
+		//application.activeWindow.title.lineUp(1,false);
+		
+		//application.activeWindow.title.endOfBuffer(false);
+		application.activeWindow.title.insertText("551 !" + ppn + "!$4ortv\n");
+	}
+	else {
+		_showMessage("Fehler Ortsnamenvorage: Keine Uebereinstimmung Array-Editfenster" + suchZeile);
+	}
+
+	
+	// Letzte Array-Eintraege entfernen
+	// (Darf erst an dieser Programmstelle vorgenommen werden).
+	search_winIdArray.pop();
+	search_ortArray.pop();
+	
+		
+	// Wechsel zum naechsten Suchfenster (sofern vorhanden).
+	// Das letzte wurde abgearbeitet und geschlossen. Nun wird das neue letzte
+	// Suchfenster zur Abarbeitung aktiviert.
+	if (search_winIdArray.length > 0) {
+		//_showMessage("Anz. Such-WinIDs (nachher 2): " + search_winIdArray.length, "vollenden_fortsetzen()");
+		winId = search_winIdArray[ search_winIdArray.length-1 ];
+		
+		// Die Try-Struktur wird benoetigt, wenn bei zwei Suchfenstern das
+		// erst-geoeffnete haendich geschlossen wurde.
+		try {
+			flgWinId = application.activateWindow(winId);    // Suchfenster aktivieren	
+		
+			// Im FEHLERFALL abarbeiten
+			if (! flgWinId) {
+				_showMessage("Fehler mit WinID (Restfenster): " + winId , "vollenden_fortsetzen");
+				search_winIdArray.pop();  // WinID aus dem Array entfernen
+				search_ortArray.pop();
+			}		
+		} catch (e) {
+			//_showMessage("Fehler mit WinID (Restfenster): " + winId , "vollenden_fortsetzen");
+		}
+	}
+	
+	return;	
+}
