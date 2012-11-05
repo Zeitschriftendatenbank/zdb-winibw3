@@ -12,7 +12,8 @@
 *.ttl
 *.ttf
 # ignored files and directories
-splash.png                     
+splash.png
+GIT_HOWTO.txt
 Uniscribe.htm
 chrome/*.txt
 chrome/overlayinfo/
@@ -86,10 +87,3 @@ res/
 plugins/
 images/
 components/
-
-
-
-
-
-
-
