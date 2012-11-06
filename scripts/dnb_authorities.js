@@ -1,4 +1,4 @@
-﻿//Skripte für Normdaten
+//Skripte für Normdaten
 
 /*
 
