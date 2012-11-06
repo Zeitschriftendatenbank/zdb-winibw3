@@ -9,7 +9,6 @@
 *.dat
 *.chk
 *.xpt
-*.ttl
 *.ttf
 # ignored files and directories
 splash.png
