@@ -1,27 +1,4 @@
 // Datei:			zdb_scripte_01.js
-// Autor:			Johann Rolschewski, Wenke Röper, Carsten Klee (ZDB)
-// Ueberarbeitung: 	Karen Hachmann (GBV)
-// Test: 			Althaus (DNB), 28.08.2009, Update
-// Korrekturen: 		Johann Rolschewski (ZDB), 19.04.2010,  zdb_Normadatenkopie, zdb_Reziprok
-// Korrektur: 		Johann Rolschewski (ZDB), 12.05.2010, Korrektur zdb_Reziprok
-// Korrektur:		Carsten Klee (ZDB),
-//					29.10.2012	zdb_reziprok in dnb_public_extern.js verschoben (gnd kompatibel)
-//					23.06.2011 replace * in pissn/eissn in zdb_EZB
-//					04.01.2011 replace * in pissn in __druckausgabe
-//					14.12.2010 neue EZB-DDC-Konkordanz Notationen
-//					03.11.2010 Korrektur Klammern7120
-//					21.10.2010 Korrektur Klammern7120
-//					13.10.2010 neu Hilfsfunktion __zdb5080() in Verbindung mit zdb_Digitalisierung (); __zdbTiteldatenKopie()
-//					06.10.2010 __druckausgabe( )  geringfügige Änderung
-//					27.09.2010 zdb_Digitalisierung() --> Feld 4244 Titel 
-//					24.09.2010 Feldauf7120 vereinfacht --> gleiches Verhalten bei 4024
-//					10.09.2010 neue Hilfsfunktioen, neue Funktion merkeZDB
-//					21.07.2010, zdb_EZB() und __EZBNota() an DDC angepasst,
-//					neue Hilfsfunktion __zdbArrayUnique(),
-//					alle hebis-Funktionen in zdb umbenannt
-//					23.07.2010, __druckausgabe() Internetausg. geändert in Online-Ausg.
-//					30.07.2010 zdb_ExemplarErfassen(), try and catch exception
-//
 
 var anfangsfenster;
 //========================================
@@ -385,6 +362,87 @@ function zdb_DigiConfig() {
 
 }
 
+//--------------------------------------------------------------------------------------------------------
+//name:		__zdbEResource
+//calls:		__zdbEResource4060
+// called by:	db_Digitalisierung; zdb_Parallelausgabe
+//description:	Kategorie 4000: falls 4005 nicht vorhanden, Text "[[Elektronische Ressource]]" anfügen
+//			Kategorie 4005: falls vorhanden, Text "[[Elektronische Ressource]]" anfügen
+//user:	  	all users
+//author: 		Carsten Klee
+//date:		2012-11-06
+//version:		1.0.0.0
+//--------------------------------------------------------------------------------------------------------
+
+function __zdbEResource(){
+	// Kategorie 4000: falls 4005 nicht vorhanden, Text "[[Elektronische Ressource]]" anfügen
+	if (application.activeWindow.title.findTag("4005", 0, false, true, true) == "") {
+		var f4000 = application.activeWindow.title.findTag("4000", 0, true, true, false);
+		if (f4000.indexOf(" // ") !== -1) {
+			application.activeWindow.title.endOfField(false);
+		} else if (f4000.indexOf(" : ") !== -1) {
+			application.activeWindow.title.startOfField(false);
+			application.activeWindow.title.charRight(f4000.indexOf(" : "), false);
+		} else if (f4000.indexOf(" = ") !== -1) {
+			application.activeWindow.title.startOfField(false);
+			application.activeWindow.title.charRight(f4000.indexOf(" = "), false);
+		} else if (f4000.indexOf(" / ") !== -1) {
+			application.activeWindow.title.startOfField(false);
+			application.activeWindow.title.charRight(f4000.indexOf(" / "), false);
+		} else {
+			application.activeWindow.title.findTag("4000", 0, true, true, false)
+			application.activeWindow.title.endOfField(false);
+		}
+		application.activeWindow.title.insertText(" [[Elektronische Ressource]]");
+		__zdbEResource4060();
+		return;
+
+	// Kategorie 4005: falls vorhanden, Text "[[Elektronische Ressource]]" anfügen
+	} else {
+		var f4005 = application.activeWindow.title.findTag("4005", 0, true, true, false);
+		if (f4005.indexOf(" // ") !== -1) {
+			application.activeWindow.title.endOfField(false);
+		} else if (f4005.indexOf(" : ") !== -1) {
+			application.activeWindow.title.startOfField(false);
+			application.activeWindow.title.charRight(f4005.indexOf(" : "), false);
+		} else if (f4005.indexOf(" = ") !== -1) {
+			application.activeWindow.title.startOfField(false);
+			application.activeWindow.title.charRight(f4005.indexOf(" = "), false);
+		} else if (f4005.indexOf(" / ") !== -1) {
+			application.activeWindow.title.startOfField(false);
+			application.activeWindow.title.charRight(f4005.indexOf(" / "), false);
+		} else {
+			application.activeWindow.title.findTag("4005", 0, true, true, false)
+			application.activeWindow.title.endOfField(false);
+		}
+		application.activeWindow.title.insertText(" [[Elektronische Ressource]]");
+		__zdbEResource4060();
+		return;
+	}
+}
+//--------------------------------------------------------------------------------------------------------
+//name:		__zdbEResource4060
+// called by:	__zdbEResource
+//description:	 Kategorie 4060: falls Feld vorhanden, wird Inhalt mit Text "Online-Ressource" überschrieben
+//			   falls Feld nicht vorhanden, wird es angelegt und mit Text "Online-Ressource" befüllt
+//user:	  	all users
+//author: 		Carsten Klee
+//date:		2012-11-06
+//version:		1.0.0.0
+//--------------------------------------------------------------------------------------------------------
+function __zdbEResource4060(){
+	// Kategorie 4060: falls Feld vorhanden, wird Inhalt mit Text "Online-Ressource" überschrieben
+	//			   falls Feld nicht vorhanden, wird es angelegt und mit Text "Online-Ressource" befüllt
+	if (application.activeWindow.title.findTag("4060", 0, false, true, true) != "") {
+		application.activeWindow.title.insertText("Online-Ressource\n");
+	} else {
+		application.activeWindow.title.endOfBuffer(false);
+		application.activeWindow.title.insertText("4060 Online-Ressource\n");
+	}
+	return;
+}
+
+
 function zdb_Digitalisierung () {
 
 	// Prüfen ob Bildschirm = Trefferliste oder Vollanzeige
@@ -547,55 +605,7 @@ function zdb_Digitalisierung () {
 		application.activeWindow.title.insertText("2013 |p|" + f2010 + "\n");
 	}
 
-	// Kategorie 4000: falls 4005 nicht vorhanden, Text "[[Elektronische Ressource]]" anfügen
-	if (application.activeWindow.title.findTag("4005", 0, false, true, true) == "") {
-		var f4000 = application.activeWindow.title.findTag("4000", 0, true, true, false);
-		if (f4000.indexOf(" // ") !== -1) {
-			application.activeWindow.title.endOfField(false);
-		} else if (f4000.indexOf(" : ") !== -1) {
-			application.activeWindow.title.startOfField(false);
-			application.activeWindow.title.charRight(f4000.indexOf(" : "), false);
-		} else if (f4000.indexOf(" = ") !== -1) {
-			application.activeWindow.title.startOfField(false);
-			application.activeWindow.title.charRight(f4000.indexOf(" = "), false);
-		} else if (f4000.indexOf(" / ") !== -1) {
-			application.activeWindow.title.startOfField(false);
-			application.activeWindow.title.charRight(f4000.indexOf(" / "), false);
-		} else {
-			application.activeWindow.title.findTag("4000", 0, true, true, false)
-			application.activeWindow.title.endOfField(false);
-		}
-		application.activeWindow.title.insertText(" [[Elektronische Ressource]]");
-
-	// Kategorie 4005: falls vorhanden, Text "[[Elektronische Ressource]]" anfügen
-	} else {
-		var f4005 = application.activeWindow.title.findTag("4005", 0, true, true, false);
-		if (f4005.indexOf(" // ") !== -1) {
-			application.activeWindow.title.endOfField(false);
-		} else if (f4005.indexOf(" : ") !== -1) {
-			application.activeWindow.title.startOfField(false);
-			application.activeWindow.title.charRight(f4005.indexOf(" : "), false);
-		} else if (f4005.indexOf(" = ") !== -1) {
-			application.activeWindow.title.startOfField(false);
-			application.activeWindow.title.charRight(f4005.indexOf(" = "), false);
-		} else if (f4005.indexOf(" / ") !== -1) {
-			application.activeWindow.title.startOfField(false);
-			application.activeWindow.title.charRight(f4005.indexOf(" / "), false);
-		} else {
-			application.activeWindow.title.findTag("4005", 0, true, true, false)
-			application.activeWindow.title.endOfField(false);
-		}
-		application.activeWindow.title.insertText(" [[Elektronische Ressource]]");
-	}
-
-	// Kategorie 4060: falls Feld vorhanden, wird Inhalt mit Text "Online-Ressource" überschrieben
-	//			   falls Feld nicht vorhanden, wird es angelegt und mit Text "Online-Ressource" befüllt
-	if (application.activeWindow.title.findTag("4060", 0, false, true, true) != "") {
-		application.activeWindow.title.insertText("Online-Ressource");
-	} else {
-		application.activeWindow.title.endOfBuffer(false);
-		application.activeWindow.title.insertText("4060 Online-Ressource");
-	}
+	__zdbEResource();
 
 	// Kategorie 4234: anlegen und mit Text "4243 Druckausg.![...IDN...]!" befüllen
 	application.activeWindow.title.endOfBuffer(false);

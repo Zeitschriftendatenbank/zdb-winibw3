@@ -2,10 +2,10 @@
 
 /*
 
-2010-12-01 gr PNDLink: Fehlerkorrektur (bei Schließen des Ergebnisfensters ohne Übernahme wurde immer Ind. c vergeben statt des vorher ausgewählten)
 2011-02-11 gr Uebersetzer: Fehlerkorrektur, Variable fm angepasst und fm_abfr gelöscht, da Bedingungen nicht immer logisch
 2012-02-27 gr Tn_Tp: entfernt, da in GND nicht mehr benötigt
 2012-03-05 gr neu: GNDmbxKonf, für externe Nutzer
+2012-11-06 gr __relCodeVergabe: RelaCodes-Dateipfad flexibel gemacht (entw. ttlcopy oder defaulte\relationscodes)
 */
 
 //-------------------------------------------------------------------------------------------------------------------------------
@@ -563,7 +563,7 @@ var matVorh = application.activeWindow.materialCode;  //Im Satz vorhandene Mater
     application.activeWindow.command("k",false);
     }
 	
-  //Keine Prüfung, ob 816 bereits vorhanden, da manchmal Mehrfacheingabe
+  //Keine Prüfung, ob 083 bereits vorhanden, da manchmal Mehrfacheingabe
   __geheZuKat("083","",false);
   application.activeWindow.title.startOfField(false);
   application.activeWindow.title.insertText("083 $d$t" + __makeDate() + "\n");
@@ -586,7 +586,8 @@ Verwendete Unterfunktionen: __gndError, __prompterPruef, __geheZuKat, __feldTest
 Historie:
 2010-09-03   S. Grund 	: erstellt
 2011-02-11   gr: Korrektur, Variable fm angepasst und fm_abfr gelöscht, da Bedingungen nicht immer logisch
-2011-10-18   gr: Umstellung auf GND   
+2011-10-18   gr: Umstellung auf GND 
+2012-04-30   gr: "012 v" entfernt, da dies nur noch von der Online-Routine gesetzt werden soll (Anforderung FA/AfS, Mail Fr. Klein vom 30.4.12)   
 --------------------------------------------------------------------------------------------------------*/
 
     // ---
@@ -684,8 +685,7 @@ or_spr = or_spr + "\n";
 pnd = "005 Tp4\n" +
 	"008 \n" +
   "011 f\n" +
-	"012 v\n" +
-  "043 \n" +
+	"043 \n" +
 	"100 " + pers + "\n" +
 	"548 $c$4datw\n" +
 	fm_uebers[1] + "\n" +
@@ -700,15 +700,15 @@ pnd = "005 Tp4\n" +
   application.activeWindow.title.findTag("008",0,false,true,false);
   application.activeWindow.title.endOfField(false);
   } else { //kein neu zu erfassender Datensatz, vorhandener wird stattdessen korrigiert
-  //Nutzungskennzeichen vorhanden?
+  /* Nutzungskennzeichen vorhanden?
   k012 = __geheZuKat("012","",true);
     if (k012.indexOf("012 ") == 0) {  //Feld bereits vorhanden
       if (k012.indexOf("v") == -1) {  //Inhalt noch nicht vorhanden
       application.activeWindow.title.insertText("v");
-      }
-    } else {  //Feld noch gar nicht vorhanden
+      } 
+    } else {  //Feld noch gar nicht vorhanden 
     application.activeWindow.title.insertText("\n012 /v");        
-    }
+    } */
     //548 $4datw vorhanden?
     if (__feldTest("548","","$4datw",false) == "fnw") {
     __geheZuKat("548","",true);
@@ -1142,6 +1142,7 @@ Vorhandene Unterfunktionen: __gndError, __prompterPruef
 
 2011-10-20  S. Grund  : Erstellung
 2012-03-06  S. Grund  : Anpassung für Popups, wenn mehr Codes als 35
+2012-11-06  S. Grund  : RelaCodes-Dateipfad flexibel gemacht (entw. ttlcopy oder defaulte\relationscodes)
 -------------------------------------------------------------------------------------------------------------*/
 
 var boxtit1 = "Auswahl des Codes für die Beziehung";
@@ -1149,7 +1150,6 @@ var boxtit2 = "Prüfung des Codes für die Beziehung";
 var tag = matTag.substr(2);
 var matArt = matTag.substr(0,2);
 var datIn = utility.newFileInput();
-var datTest = datIn.openSpecial("BinDir","\\defaults\\relationscodes\\relaCodes" + tag.substr(0,1) + "xx.txt");
 relaCodes = new Array();
 var frage1 = "";
 var frage2 = "";
@@ -1158,18 +1158,27 @@ var frage3 = "";
 var wertePruef = "";
 var w = ""; //Variable, falls "weiter" für weitere Relationscodes notwendig
 
-  if(datTest == 1) {  //wenn Datei vorhanden, jede Zeile durchgehen und nach übergebener matTag-Kombination suchen
-    while (!datIn.isEOF()) {
-    zeile = datIn.readLine();
-      if (zeile.indexOf(matTag) > -1) {
-      zeileArr = zeile.split("\t");
-      relaCodes.push(zeileArr[0] + "  :  " + zeileArr[1]);
-      }
-    }  
-  } else {
-  __gndError(boxtit1, "Datei \\defaults\\relationscodes\\relaCodes" + matTag.substr(2,1) + "xx.txt ist im WinIBW-Verzeichnis nicht vorhanden!");
-  return false;
-  } 
+
+  if (!(datIn.openSpecial("BinDir","\\ttlcopy\\relaCodes" + tag.substr(0,1) + "xx.txt"))) {
+    if (!(datIn.openSpecial("BinDir","\\defaults\\relationscodes\\relaCodes" + tag.substr(0,1) + "xx.txt"))) {
+    __gndError(boxtit1,"Die Datei relaCodes" + matTag.substr(2,1) + "xx.txt ist weder in \\defaults\\relationscodes\\relaCodes noch in \\ttlcopy vorhanden!");
+    return false;
+    }
+  }
+  //var datTest = datIn.openSpecial("BinDir","\\defaults\\relationscodes\\relaCodes" + tag.substr(0,1) + "xx.txt");
+  
+  //if(datTest == 1) {  //wenn Datei vorhanden, jede Zeile durchgehen und nach übergebener matTag-Kombination suchen
+  while (!datIn.isEOF()) {
+  zeile = datIn.readLine();
+    if (zeile.indexOf(matTag) > -1) {
+    zeileArr = zeile.split("\t");
+    relaCodes.push(zeileArr[0] + "  :  " + zeileArr[1]);
+    }
+  }  
+  //} else {
+  //__gndError(boxtit1, "Datei \\defaults\\relationscodes\\relaCodes" + matTag.substr(2,1) + "xx.txt ist im WinIBW-Verzeichnis nicht vorhanden!");
+  //return false;
+  //} 
 
   if (relaCodes.length == 0) {
   __gndError(boxtit1,"In der Materialart " + matArt + " sind im Feld " + tag + " keine Codes für eine Beziehung vorgesehen!");
@@ -1272,5 +1281,40 @@ Historie:
 
 var prompter = utility.newPrompter();
 return (prompter.confirm(boxtit,meldungstext));
-}		   
+}	
+
+function GND670date() {
+
+var boxtit = "Internetquelle für GND-Satz erfassen";
+var typ = application.activeWindow.materialCode;
+var jetzt = new Date();
+var datum = new Array();
+var strDate;
+var typErlaubt = "Tb Tf Tg Tn Tp Ts Tu";
+
+if (((!application.activeWindow.title) && (application.activeWindow.getVariable("scr") != "8A")) || (typErlaubt.indexOf(typ) == -1)) {
+__gndError(boxtit,"Diese Funktion kann nur in einem GND-Satz (" + typErlaubt + ") in der Vollanzeige oder dem Eingabe- oder Korrekturmodus verwendet werden!");
+return false;
+}
+
+datum[0] = jetzt.getDate();
+datum[1] = jetzt.getMonth() + 1;
+datum[2] = jetzt.getFullYear();
+//Tag und Monat immer zweistellig
+for (i=0;i < 2;i++) {
+  datum[i] = datum[i].toString();
+  if (datum[i].length == 1) {
+  datum[i] = "0" + datum[i]
+  }
+}
+strDate = datum[0] + "." + datum[1] + "." + datum[2]
+
+if (application.activeWindow.getVariable("scr") == "8A") {
+application.activeWindow.command("k",false);  
+}
+
+application.activeWindow.title.endOfBuffer(false);
+application.activeWindow.title.insertText("670 $bStand: " + strDate + "$uhttp://");	
+
+}
 

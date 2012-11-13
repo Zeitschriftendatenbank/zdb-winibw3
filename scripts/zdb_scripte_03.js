@@ -30,6 +30,7 @@ function zdb_gndNormdatensatzKopie(){
 	//Wiederherstellen des urspruenglichen Pfades der Titelkopie-Datei:
 	application.activeWindow.titleCopyFile = titlecopyfileStandard;
 }
+
 /**
 * Scherer Birgit, BSZ
 * 10.04.2012
@@ -409,4 +410,150 @@ xx = ppn;
 	}
 	
 	return;	
+}
+
+//--------------------------------------------------------------------------------------------------------
+//name:		zdb_Parallelausgabe()
+//description:	same as zdb_Digitalisierung but for Obx records
+//calls:		
+//user:	  	all users
+//input: 		none
+//return:		void
+//author: 		Carsten Klee
+//date:		2012-11-06
+//version:		0.1
+//status:		testing
+//--------------------------------------------------------------------------------------------------------
+function zdb_Parallelausgabe () {
+
+	// Prüfen ob Bildschirm = Trefferliste oder Vollanzeige
+	var strScreen = application.activeWindow.getVariable("scr");
+	if (strScreen != "7A" && strScreen != "8A") {
+			application.messageBox("Parallelausgabe", "Die Funktion muss aus der Trefferliste oder der Vollanzeige aufgerufen werden.", "alert-icon");
+			return;
+	}
+
+	// Prüfen, ob Titeldatensatz mit bibliographischer Gattung "A" aufgerufen, bei "T" oder "O" Fehlermeldung ausgeben
+	var matCode = application.activeWindow.materialCode.charAt(0);
+	if(matCode == "T" || matCode == "O") {
+		application.messageBox("Digitalisierung", "Die Funktion kann nur für Titelsätze des Satztyps \"A\" verwendet werden.", "alert-icon");
+		return true;
+	}
+	
+	//-- open title
+	application.activeWindow.command("k p", false);
+	
+	//--- vars we need
+	var feld4244 = new Array();
+	var subfield = "";
+	var code = "";
+	var x = 0;
+	
+	/*
+	//-- analyse and convert field 4244
+	while(application.activeWindow.title.findTag("039E", x, false, true, false) !== ""){
+			feld4244[x] = application.activeWindow.title.findTag("039E", x, false, true, false);
+			code = feld4244[x].match(/\$b./)[0][2];
+			//---switch the subfields
+			switch(feld4244[x].match(/\$b.\$./)[0][4]){
+				case "r" : feld4244[x] = "4244 " + code +"#{" + feld4244[x].match(/\$b.\$r(.*)/)[1] + "}";
+				break;
+				case "a" : feld4244[x] = "4244 " + code +"#{" + feld4244[x].match(/\$b.\$a(.*)\$9/)[1] + " ---> " + feld4244[x].match(/\$8--[A-Za-z]{4}--(.*)/)[1] + "}";
+				break;
+				default : feld4244[x] = "4244 " + code +"#{" + __zdbSwitchCode4244(code) + " ---> " + feld4244[x].match(/\$8--[A-Za-z]{4}--(.*)/)[1] + "}";
+				break;
+			}
+			x++;
+	}
+	*/
+	//-- close title and go back
+	zdb_Back();
+	
+	// Titelkopie auf zdb_titeldatenkopie_digi.ttl setzen
+	var titlecopyfileStandard = application.getProfileString("winibw.filelocation", "titlecopy", "");
+	application.activeWindow.titleCopyFile = "resource:/ttlcopy/zdb_titeldatenkopie_parallel.ttl";
+	application.overwriteMode = false;
+	var idn = application.activeWindow.getVariable("P3GPP");
+	application.activeWindow.command("show d", false);
+
+	// Titelaufnahme kopieren und neue Titelaufnahme anlegen
+	application.activeWindow.copyTitle();
+	application.activeWindow.command("ein t", false);
+	application.activeWindow.title.insertText(" *** Titeldatenkopie Parallelausgabe *** \n");
+	application.activeWindow.pasteTitle();
+    //Wiederherstellen des ursprünglichen Pfades der Titelkopie-Datei:
+    application.activeWindow.titleCopyFile = titlecopyfileStandard;
+	
+	// Kategorie 0500: Bibliographische Gattung/Status ändern
+	var f0500 = application.activeWindow.title.findTag("0500", 0, false, true, true);
+	f0500 = f0500.replace("A","O");
+	f0500 = f0500.replace("v","x");
+	application.activeWindow.title.insertText(f0500);
+
+
+	// Kategorie 1101: individuell gefüllt oder leer ausgeben
+	application.activeWindow.title.endOfBuffer(false);
+	application.activeWindow.title.insertText("1101 cr\n");
+
+	// Kategorie 1109: individuell gefüllt oder leer ausgeben
+	application.activeWindow.title.endOfBuffer(false);
+	application.activeWindow.title.insertText("1109 \n");
+
+	// Kategorie 2010: Inhalt in 2013 ausgeben und löschen
+	var f2010 = application.activeWindow.title.findTag("2010", 0, false, true, true);
+	if (f2010 != "") {
+		application.activeWindow.title.deleteLine(1);
+		application.activeWindow.title.insertText("2013 |p|" + f2010 + "\n");
+	}	
+	
+	// Kategorie 2050: individuell gefüllt oder leer ausgeben
+	application.activeWindow.title.endOfBuffer(false);
+	application.activeWindow.title.insertText("2050 \n");	
+	
+	// Kategorie 2051: individuell gefüllt oder leer ausgeben
+	application.activeWindow.title.endOfBuffer(false);
+	application.activeWindow.title.insertText("2051 \n");
+
+	// Kategorie 4048: individuell gefüllt oder leer ausgeben
+	application.activeWindow.title.endOfBuffer(false);
+	application.activeWindow.title.insertText("4048 \n");
+
+	// Kategorie 4085: individuell gefüllt oder leer ausgeben
+	application.activeWindow.title.endOfBuffer(false);
+	application.activeWindow.title.insertText("4085 =u \n");
+
+	// Kategorie 4119: individuell gefüllt oder leer ausgeben
+	application.activeWindow.title.endOfBuffer(false);
+	application.activeWindow.title.insertText("4119 \n");
+
+	// Kategorie 4233: individuell gefüllt oder leer ausgeben
+	application.activeWindow.title.endOfBuffer(false);
+	application.activeWindow.title.insertText("4233 \n");
+
+	// Kategorie 4237: individuell gefüllt oder leer ausgeben
+	application.activeWindow.title.endOfBuffer(false);
+	application.activeWindow.title.insertText("4237 \n");	
+
+	// Kategorie 4234: anlegen und mit Text "4243 Druckausg.![...IDN...]!" befüllen
+	application.activeWindow.title.endOfBuffer(false);
+	application.activeWindow.title.insertText("\n4243 Druckausg.!" + idn + "!\n");
+	
+	// Kategorie 4237: individuell gefüllt oder leer ausgeben
+	application.activeWindow.title.endOfBuffer(false);
+	application.activeWindow.title.insertText("4244 f#Druckausg. u. Vorg.!...! \n");
+	application.activeWindow.title.insertText("4244 f#Vorg. als Druckausg.!...!\n");
+
+	// Kategorie 4251: individuell gefüllt oder leer ausgeben
+	application.activeWindow.title.endOfBuffer(false);
+	application.activeWindow.title.insertText("4251 \n");
+
+	__zdbEResource();
+	
+	// Kategorie 5080 bereinigen: nur DDC
+	__zdb5080();
+	
+	// Kategorie 4213: individuell gefüllt oder leer ausgeben
+	application.activeWindow.title.endOfBuffer(false);
+	application.activeWindow.title.insertText("4213 %Gesehen am ++");
+	application.activeWindow.title.charLeft(1,false);
 }
