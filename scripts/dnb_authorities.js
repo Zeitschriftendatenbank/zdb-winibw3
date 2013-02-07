@@ -666,7 +666,7 @@ fm_uebers = new Array();
 
     //Wenn der zurückgegebene Wert "Abbruch"
     if (fm == "" || fm == null) {
-    __dnbMeldung(boxtit, "Funktion abgebrochen!");
+    __gndMsg(boxtit, "Funktion abgebrochen!");
     return;
     }
   
@@ -806,7 +806,7 @@ var boxtit = "Datensatz umlenken";
 
 qidn = application.activeWindow.getVariable("P3GPP");
 application.writeProfileString("dnbUser","qidn",qidn);
-__dnbMeldung(boxtit, "Verlierersatz wurde festgelegt (IDN : " + qidn + "). Jetzt normUmlenk vom Gewinnersatz aus starten!");
+__gndMsg(boxtit, "Verlierersatz wurde festgelegt (IDN : " + qidn + "). Jetzt normUmlenk vom Gewinnersatz aus starten!");
 
 }
 
@@ -1064,7 +1064,7 @@ mbx = __katEinlesen("901");
     for (var i = 0; i < mbx.length; i++) {
     //Kardinalzahl der Mailbox
     kard = i + 1;
-    mbx_neu = __dnbPrompter(boxtit,kard + ". Mailboxtext",mbx[i]);
+    mbx_neu = __gndPrompter(boxtit,kard + ". Mailboxtext",mbx[i]);
     application.activeWindow.title.startOfBuffer(false);
     application.activeWindow.title.replaceAll(mbx[i],mbx_neu,false,false)
     }
@@ -1074,7 +1074,7 @@ application.activeWindow.simulateIBWKey("FR");
 titq = application.activeWindow.copyTitle();
 application.activeWindow.clipboard = qidn;
 application.activeWindow.closeWindow();
-__dnbMeldung(boxtit,"Der Verlierersatz wurde folgendermaßen bearbeitet und abgespeichert. Seine IDN " + qidn + " befindet sich im Kopierspeicher zum erneuten Aufruf bei Bedarf.\n\n" + titq);
+__gndMsg(boxtit,"Der Verlierersatz wurde folgendermaßen bearbeitet und abgespeichert. Seine IDN " + qidn + " befindet sich im Kopierspeicher zum erneuten Aufruf bei Bedarf.\n\n" + titq);
 //Löschen der Verlierersatz-IDN aus Profil
 application.writeProfileString("dnbUser","qidn","");
 //__dnbMeldung(boxtit,"Dies ist der Verlierersatz mit eingefügter Umlenkmarkierung. Hinter diesem Fenster befindet sich der Gewinnersatz, ebenfalls noch im Korrekturstatus");
